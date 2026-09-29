@@ -1,0 +1,2 @@
+This is a sample FTP server file.
+You can download it or upload another text file.

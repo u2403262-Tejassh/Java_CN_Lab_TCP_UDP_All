@@ -1,0 +1,57 @@
+import java.net.*;
+import java.util.Random;
+import java.util.Scanner;
+
+public class GBN_UDP_Client {
+    public static void main(String[] args) throws Exception {
+        DatagramSocket socket = new DatagramSocket();
+        InetAddress address = InetAddress.getByName("localhost");
+        Scanner scanner = new Scanner(System.in);
+        Random random = new Random();
+        double frameLoss = 0.30;
+
+        System.out.print("Enter number of frames: ");
+        int n = scanner.nextInt();
+        System.out.print("Enter window size: ");
+        int window = scanner.nextInt();
+        String[] frames = new String[n];
+        for (int i = 0; i < n; i++) frames[i] = "FRAME " + i;
+
+        int base = 0, next = 0;
+        while (base < n) {
+            while (next < n && next < base + window) {
+                sendFrame(socket, address, frames[next], random, frameLoss);
+                next++;
+            }
+            socket.setSoTimeout(2000);
+            try {
+                byte[] data = new byte[100];
+                DatagramPacket packet = new DatagramPacket(data, data.length);
+                socket.receive(packet);
+                String ack = new String(packet.getData(), 0, packet.getLength());
+                System.out.println(ack + " received");
+                int ackNo = Integer.parseInt(ack.replace("ACK ", ""));
+                if (ackNo > base && ackNo <= next) base = ackNo;
+            } catch (SocketTimeoutException e) {
+                System.out.println("Timeout! Go back to Frame " + base);
+                for (int i = base; i < next; i++) sendFrame(socket, address, frames[i], random, frameLoss);
+            }
+        }
+        byte[] quit = "QUIT".getBytes();
+        socket.send(new DatagramPacket(quit, quit.length, address, 6202));
+        socket.close();
+        scanner.close();
+    }
+
+    static void sendFrame(DatagramSocket socket, InetAddress address, String frame,
+                          Random random, double loss) throws Exception {
+        byte[] data = frame.getBytes();
+        DatagramPacket packet = new DatagramPacket(data, data.length, address, 6202);
+        if (random.nextDouble() < loss) {
+            System.out.println(frame + " lost");
+        } else {
+            socket.send(packet);
+            System.out.println(frame + " sent");
+        }
+    }
+}
